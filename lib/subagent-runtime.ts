@@ -1,7 +1,6 @@
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import {
   createAgentSessionFromServices,
-  createAgentSessionServices,
   getAgentDir,
   initTheme,
   SessionManager,
@@ -47,6 +46,7 @@ import { SubagentQueue } from "./subagent-queue";
 import { addWorktree, removeWorktree } from "./worktree";
 import { randomUUID } from "node:crypto";
 import { existsSync, writeFileSync } from "node:fs";
+import { createPiWebAgentSessionServices } from "./web-extension-policy";
 
 interface HostSession {
   readonly inner: AgentSessionLike;
@@ -508,7 +508,7 @@ export function createSubagentController(
         ...(skillsBinding.loaderOptions.extensionFactories ?? []),
       ];
       if (!chatOnly) initTheme();
-      const services = await createAgentSessionServices({
+      const services = await createPiWebAgentSessionServices({
         cwd: childCwd,
         agentDir,
         modelRuntime: parentModelRuntime,

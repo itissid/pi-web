@@ -1,6 +1,7 @@
 import { stat } from "fs/promises";
 import { resolve } from "path";
-import { createAgentSessionServices, getAgentDir } from "@earendil-works/pi-coding-agent";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { createPiWebAgentSessionServices } from "@/lib/web-extension-policy";
 import {
   isThinkingLevel,
   projectSettingsPath,
@@ -75,7 +76,7 @@ export async function PUT(req: Request) {
   try {
     const agentDir = getAgentDir();
     const trustReloadOptions = projectTrustReloadOptions(cwd, agentDir);
-    const services = await createAgentSessionServices({
+    const services = await createPiWebAgentSessionServices({
       cwd,
       agentDir,
       ...(trustReloadOptions ? { resourceLoaderReloadOptions: trustReloadOptions } : {}),
