@@ -53,10 +53,11 @@ const nextConfig: NextConfig = {
     "@earendil-works/pi-ai",
     "@earendil-works/pi-tui",
   ],
-  // Next 16 blocks cross-origin access to dev resources by default. Allow the
-  // loopback and the RFC1918 LAN ranges so the dev server stays reachable
-  // from other machines on the same LAN.
+  // Next 16 blocks cross-origin access to dev resources by default. Keep the
+  // application's explicit private proxy hosts usable in source mode too.
+  // Host/API authentication is still enforced separately by proxy.ts.
   allowedDevOrigins: [
+    ...(process.env.PI_WEB_ALLOWED_HOSTS?.split(",").map((host) => host.trim()).filter(Boolean) ?? []),
     "127.0.0.1",
     "10.*.*.*",
     // 172.16.0.0/12
