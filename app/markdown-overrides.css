@@ -1,0 +1,110 @@
+/*
+ * Local Markdown appearance override. Imported last by app/layout.tsx.
+ * Remove that import to disable this customization; globals.css stays unchanged.
+ *
+ * Scope: rendered chat Markdown and the file viewer's Markdown preview only.
+ * :where() keeps specificity low so component-specific styles still work.
+ * Deliberately preserve content backgrounds, layout widths, heading sizes,
+ * code-block highlighting, and the source editor / surrounding interface.
+ */
+
+/* Light palette. Namespaced variables cannot change the app's theme tokens. */
+.markdown-body:where(.chat-content *, .markdown-file-preview) {
+  --reading-text: #29263d;
+  --reading-muted: #5f5a72;
+  --reading-accent: #6840a0;
+  --reading-bold: #704b00;
+  --reading-italic: #843b6b;
+  --reading-code: #633589;
+  --reading-code-bg: #eee9f5;
+  --reading-border: #c8c2d5;
+  --reading-selection: #ddd6fe;
+}
+
+/* Pi Web toggles html.dark for every dark preset, including Dusk. */
+html.dark .markdown-body:where(.chat-content *, .markdown-file-preview) {
+  --reading-text: #d9d8ec;
+  --reading-muted: #aaa8c5;
+  --reading-accent: #caa6f7;
+  --reading-bold: #f1d894;
+  --reading-italic: #e3acd7;
+  --reading-code: #d5b4f4;
+  --reading-code-bg: #3a3552;
+  --reading-border: #6d6981;
+  --reading-selection: #595273;
+}
+
+/* Font, spacing, and text. No content background override. */
+.markdown-body:where(.chat-content *, .markdown-file-preview) {
+  font-family: "SFMono-Regular", "Cascadia Code", "JetBrains Mono",
+    "Fira Code", Menlo, Monaco, Consolas, monospace;
+  font-size: 15px;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: var(--reading-text);
+}
+
+/* Headings and emphasis. */
+.markdown-body:where(.chat-content *, .markdown-file-preview) :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--reading-accent);
+  font-family: inherit;
+  font-weight: 700;
+}
+
+.markdown-body:where(.chat-content *, .markdown-file-preview) strong {
+  color: var(--reading-bold);
+  font-weight: 700;
+}
+
+.markdown-body:where(.chat-content *, .markdown-file-preview) em {
+  color: var(--reading-italic);
+}
+
+/* Links and list markers. */
+.markdown-body:where(.chat-content *, .markdown-file-preview) a,
+.markdown-body:where(.chat-content *, .markdown-file-preview) li::marker {
+  color: var(--reading-accent);
+}
+
+/* Inline code only; fenced code retains its syntax theme. */
+.markdown-body:where(.chat-content *, .markdown-file-preview) .markdown-inline-code {
+  color: var(--reading-code);
+  background: var(--reading-code-bg);
+  border-radius: 3px;
+  padding: 0.05em 0.25em;
+  box-shadow: none;
+}
+
+/* Quotes and separators. */
+.markdown-body:where(.chat-content *, .markdown-file-preview) blockquote {
+  color: var(--reading-muted);
+  border-left-color: var(--reading-accent);
+  background: transparent;
+}
+
+.markdown-body:where(.chat-content *, .markdown-file-preview) hr {
+  border-color: var(--reading-border);
+}
+
+/* Tables: preserve the trial's interaction with existing row styles. */
+.markdown-body:where(.chat-content *, .markdown-file-preview) table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.markdown-body:where(.chat-content *, .markdown-file-preview) :is(th, td) {
+  border: none;
+  border-bottom: 1px solid var(--reading-border);
+  background: transparent;
+  padding: 8px;
+  text-align: left;
+}
+
+.markdown-body:where(.chat-content *, .markdown-file-preview) th {
+  color: var(--reading-accent);
+}
+
+/* Selected prose. */
+.markdown-body:where(.chat-content *, .markdown-file-preview) ::selection {
+  background: var(--reading-selection);
+}
