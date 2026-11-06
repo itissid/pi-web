@@ -2,6 +2,7 @@ import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { createAgentSessionFromServices, createAgentSessionServices, getAgentDir, initTheme, SessionManager, SettingsManager, Theme, type ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { KeybindingsManager as TuiKeybindingsManager, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { randomUUID } from "crypto";
+import { writeSessionDiagnostic, type SessionDiagnostic } from "./session-diagnostics";
 import { existsSync, realpathSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { isDeepStrictEqual } from "util";
@@ -388,6 +389,9 @@ export class AgentSessionWrapper {
   // Set when shutdown() starts. The SDK session stays usable until destroy(),
   // but lookups must treat the wrapper as gone from this point on.
   private closing = false;
+  private readonly diagnosticId = randomUUID();
+  private sdkDisposed = false;
+  private extensionShutdownOutcome = "not-started";
   // Bookkeeping for the debug panel (getDebugSnapshot()): times and type names only, written
   // beside the code they describe and read nowhere else.
   private readonly createdAt = Date.now();
@@ -415,6 +419,14 @@ export class AgentSessionWrapper {
 
   get sessionId(): string {
     return this.inner.sessionId;
+  }
+
+  private logLifecycle(phase: string, details: Partial<Pick<SessionDiagnostic, "extensionPath" | "event" | "elapsedMs" | "deadlineMs" | "afterDeadline">> = {}, error?: unknown): void {
+    writeSessionDiagnostic({
+      phase, sessionId: this.sessionId, wrapperId: this.diagnosticId,
+      closing: this.closing, disposed: this.sdkDisposed,
+      shutdownOutcome: this.extensionShutdownOutcome, ...details,
+    }, error);
   }
 
   get sessionFile(): string {
@@ -828,6 +840,7 @@ export class AgentSessionWrapper {
     if (this.extensionBindingPromise) return this.extensionBindingPromise;
 
     this.extensionBindingError = null;
+    this.logLifecycle("extension-binding-start");
     this.extensionBindingPromise = (async () => {
       if (!this._alive) return;
       const uiContext = this.createExtensionUiContext();
@@ -850,20 +863,25 @@ export class AgentSessionWrapper {
             notifyType: "warning",
             message: "Extension requested shutdown, but shutdown is not supported in Pi Web.",
           } as ExtensionUiRequest as AgentEvent),
-          onError: (error) => this.emit({
-            type: "extension_error",
-            extensionPath: error.extensionPath,
-            event: error.event,
-            error: error.error,
-          }),
+          onError: (error) => {
+            this.logLifecycle("extension-error", { extensionPath: error.extensionPath, event: error.event }, error);
+            this.emit({
+              type: "extension_error",
+              extensionPath: error.extensionPath,
+              event: error.event,
+              error: error.error,
+            });
+          },
         });
       } else {
         this.inner.extensionRunner.setUIContext?.(uiContext, "rpc");
       }
       this.extensionsBound = true;
+      this.logLifecycle("extension-binding-complete");
       console.log(`[pi-web] session_start dispatched to extensions for session ${this.inner.sessionId}`);
     })().catch((err) => {
       this.extensionBindingError = err;
+      this.logLifecycle("extension-binding-failed", {}, err);
       throw err;
     });
 
@@ -1736,8 +1754,14 @@ export class AgentSessionWrapper {
     this.clearExtensionWidgets(false);
 
     const finishDispose = () => {
+      this.logLifecycle("sdk-dispose-start");
       try {
         this.inner.dispose();
+        this.sdkDisposed = true;
+        this.logLifecycle("sdk-dispose-complete");
+      } catch (error) {
+        this.logLifecycle("sdk-dispose-failed", {}, error);
+        throw error;
       } finally {
         this.onDestroyCallback?.();
         // Here rather than in the registry's onDestroy callback, which a replacement swaps out.
@@ -1778,6 +1802,7 @@ export class AgentSessionWrapper {
     // extensions shut down starts a fresh wrapper instead of prompting this one.
     this.closing = true;
     this.closingAt ??= Date.now();
+    this.logLifecycle("shutdown-requested");
 
     this.shutdownPromise = (async () => {
       try {
@@ -1813,6 +1838,9 @@ export class AgentSessionWrapper {
   private async emitSessionShutdown(
     emit: NonNullable<AgentSessionLike["extensionRunner"]["emit"]>,
   ): Promise<void> {
+    const began = Date.now();
+    this.extensionShutdownOutcome = "pending";
+    this.logLifecycle("extension-shutdown-start", { deadlineMs: SESSION_SHUTDOWN_DEADLINE_MS });
     let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
     const deadline = new Promise<"timeout">((resolve) => {
       deadlineTimer = setTimeout(() => resolve("timeout"), SESSION_SHUTDOWN_DEADLINE_MS);
@@ -1822,11 +1850,23 @@ export class AgentSessionWrapper {
     // A synchronous throw becomes a rejection, and a rejection that arrives
     // after the deadline is still handled by the race below.
     const handled = (async () => {
-      await emit.call(this.inner.extensionRunner, { type: "session_shutdown", reason: "quit" });
-      return "handled" as const;
+      try {
+        await emit.call(this.inner.extensionRunner, { type: "session_shutdown", reason: "quit" });
+        const afterDeadline = this.extensionShutdownOutcome === "timed-out";
+        this.extensionShutdownOutcome = afterDeadline ? "completed-after-deadline" : "completed";
+        this.logLifecycle("extension-shutdown-complete", { elapsedMs: Date.now() - began, afterDeadline });
+        return "handled" as const;
+      } catch (error) {
+        const afterDeadline = this.extensionShutdownOutcome === "timed-out";
+        this.extensionShutdownOutcome = afterDeadline ? "failed-after-deadline" : "failed";
+        this.logLifecycle("extension-shutdown-failed", { elapsedMs: Date.now() - began, afterDeadline }, error);
+        throw error;
+      }
     })();
     try {
       if (await Promise.race([handled, deadline]) === "timeout") {
+        this.extensionShutdownOutcome = "timed-out";
+        this.logLifecycle("extension-shutdown-deadline", { elapsedMs: Date.now() - began, deadlineMs: SESSION_SHUTDOWN_DEADLINE_MS });
         console.warn(
           `[pi-web] extensions did not finish session_shutdown for session ${this.sessionId} within ${SESSION_SHUTDOWN_DEADLINE_MS} ms; disposing it anyway`,
         );
