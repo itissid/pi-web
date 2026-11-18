@@ -4,6 +4,12 @@
 
 Local browser UI for the [pi coding agent](https://github.com/earendil-works/pi). Pi Web uses the same local configuration and session files as pi, so you can browse and resume conversations, run agent turns, configure models and resources, and inspect project files from a browser.
 
+## Devbox deployment status — retired 2026-11-18
+
+The user retired the local devbox Pi Web deployment, not this source repository. Its app/supervisor, boot helper, and dedicated `tailscale-pi-web` endpoint are disabled by the devbox deployment adapter. The legacy `pi-web` container, source checkout, configuration, session files, images, and persistent data are retained. Do not treat the old `devbox-pi-web` tailnet URL as an active endpoint or restart the deployment during routine source maintenance.
+
+The operational record is `~/workspace/devbox/thoughts/shared/research/2026-11-18-pi-web-tau-retirement.md`; launcher and restoration policy remain in `~/workspace/devbox/scripts/pi-web/README.md`. The generic quick-start/development instructions below remain valid for explicit opt-in use; running them starts a service and is not a retirement verification step.
+
 **[Try the interactive demo →](https://agegr.github.io/pi-web/)** The real Pi Web UI runs entirely in your browser, with sample sessions, files and models. There is nothing to install; replies are pre-written and no model is called.
 
 ![Pi Web displaying a pi session with structured Markdown, tool calls, and project navigation](https://raw.githubusercontent.com/agegr/pi-web/main/docs/screenshot2.png)
